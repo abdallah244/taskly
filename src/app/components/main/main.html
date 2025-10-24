@@ -1,0 +1,859 @@
+<div class="main-container animate-on-load">
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="nav-brand">
+      <i class="fas fa-tasks"></i>
+      <h1>Taskly</h1>
+      <span class="user-greeting" *ngIf="userData.name">Hello, {{ userData.name }}! 👋</span>
+    </div>
+
+    <div class="nav-actions">
+      <div class="search-box">
+        <i class="fas fa-search"></i>
+        <input
+          type="text"
+          [(ngModel)]="searchQuery"
+          (input)="onSearchChange()"
+          placeholder="Search tasks..."
+        />
+      </div>
+
+      <button class="nav-btn" (click)="openAnalytics()" title="Analytics">
+        <i class="fas fa-chart-bar"></i>
+      </button>
+
+      <button class="nav-btn" (click)="openSettings()" title="Settings">
+        <i class="fas fa-cog"></i>
+      </button>
+
+      <button class="nav-btn primary" (click)="openAddTask()" title="Add New Task">
+        <i class="fas fa-plus"></i>
+        <span class="btn-text">Add Task</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <!-- Statistics Cards -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon total">
+          <i class="fas fa-list-alt"></i>
+        </div>
+        <div class="stat-info">
+          <h3>{{ getTasksCount().total }}</h3>
+          <p>Total Tasks</p>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon active">
+          <i class="fas fa-clock"></i>
+        </div>
+        <div class="stat-info">
+          <h3>{{ getTasksCount().active }}</h3>
+          <p>Active</p>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon completed">
+          <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="stat-info">
+          <h3>{{ getTasksCount().completed }}</h3>
+          <p>Completed</p>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon productivity">
+          <i class="fas fa-bolt"></i>
+        </div>
+        <div class="stat-info">
+          <h3>{{ analytics?.productivityScore || 0 | number : '1.0-0' }}%</h3>
+          <p>Productivity</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Templates -->
+    <div class="templates-section" *ngIf="templates.length > 0">
+      <h3>Quick Templates</h3>
+      <div class="templates-grid">
+        <div
+          *ngFor="let template of templates"
+          class="template-card"
+          (click)="useTemplate(template)"
+        >
+          <div class="template-icon">
+            <i class="fas fa-magic"></i>
+          </div>
+          <h4>{{ template.title }}</h4>
+          <p>{{ template.description }}</p>
+          <div class="template-badge">
+            <i class="fas fa-star"></i>
+            Template
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters and Controls -->
+    <div class="controls-bar">
+      <div class="filter-group">
+        <button
+          class="filter-btn"
+          [class.active]="activeFilter === 'all'"
+          (click)="activeFilter = 'all'; applyFilters()"
+        >
+          All
+        </button>
+        <button
+          class="filter-btn"
+          [class.active]="activeFilter === 'active'"
+          (click)="activeFilter = 'active'; applyFilters()"
+        >
+          Active
+        </button>
+        <button
+          class="filter-btn"
+          [class.active]="activeFilter === 'completed'"
+          (click)="activeFilter = 'completed'; applyFilters()"
+        >
+          Completed
+        </button>
+      </div>
+
+      <div class="category-filter">
+        <select [(ngModel)]="activeCategory" (change)="applyFilters()" class="category-select">
+          <option value="all">All Categories</option>
+          <option *ngFor="let category of categories" [value]="category">
+            {{ category | titlecase }}
+          </option>
+        </select>
+      </div>
+
+      <div class="action-buttons">
+        <button
+          class="action-btn"
+          (click)="clearCompleted()"
+          [disabled]="getTasksCount().completed === 0"
+          title="Clear Completed Tasks"
+        >
+          <i class="fas fa-trash"></i>
+          <span>Clear Completed</span>
+        </button>
+        <button class="action-btn" (click)="exportTasks()" title="Export Tasks">
+          <i class="fas fa-download"></i>
+          <span>Export</span>
+        </button>
+        <button class="action-btn" (click)="onPullToRefresh()" title="Refresh">
+          <i class="fas fa-sync-alt"></i>
+          <span>Refresh</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Tasks List -->
+    <div #taskList class="tasks-container" (scroll)="onScroll()">
+      <!-- Empty States -->
+      <div *ngIf="filteredTasks.length === 0 && !searchQuery" class="empty-state creative">
+        <div class="empty-icon">
+          <i class="fas fa-rocket"></i>
+        </div>
+        <h3>Ready to Conquer Your Day? 🚀</h3>
+        <p>Start by adding your first task and watch your productivity soar!</p>
+        <div class="empty-actions">
+          <button class="btn-primary" (click)="openAddTask()">
+            <i class="fas fa-plus"></i>
+            Create Your First Task
+          </button>
+          <button
+            class="btn-secondary"
+            (click)="useTemplate(templates[0])"
+            *ngIf="templates.length > 0"
+          >
+            <i class="fas fa-magic"></i>
+            Use a Template
+          </button>
+        </div>
+        <div class="empty-tips">
+          <div class="tip">
+            <i class="fas fa-lightbulb"></i>
+            <span>Pro Tip: Use templates for recurring tasks</span>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="filteredTasks.length === 0 && searchQuery" class="empty-state search">
+        <div class="empty-icon">
+          <i class="fas fa-search"></i>
+        </div>
+        <h3>No tasks found for "{{ searchQuery }}"</h3>
+        <p>Try adjusting your search terms or create a new task</p>
+        <button class="btn-primary" (click)="openAddTask()">
+          <i class="fas fa-plus"></i>
+          Add New Task
+        </button>
+      </div>
+
+      <!-- Tasks -->
+      <div
+        *ngFor="let task of visibleTasks; let i = index"
+        class="task-card"
+        [class.completed]="task.completed"
+        [attr.data-task-id]="task.id"
+      >
+        <!-- Drag Handle -->
+        <div class="drag-handle">
+          <i class="fas fa-grip-lines"></i>
+        </div>
+
+        <div class="task-checkbox">
+          <input
+            type="checkbox"
+            [checked]="task.completed"
+            (change)="toggleTaskCompletion(task.id)"
+            [id]="'task-' + task.id"
+          />
+          <label [for]="'task-' + task.id"></label>
+        </div>
+
+        <div class="task-content">
+          <div class="task-header">
+            <h3 class="task-title">{{ task.title }}</h3>
+            <div class="task-meta">
+              <span class="task-category">
+                <i [class]="getCategoryIcon(task.category)"></i>
+                {{ task.category | titlecase }}
+              </span>
+              <span class="task-priority" [style.background]="getPriorityColor(task.priority)">
+                <i class="fas fa-flag"></i>
+                {{ task.priority }}
+              </span>
+              <span class="task-date">
+                <i class="fas fa-calendar"></i>
+                {{ task.dueDate | date : 'MMM d' }}
+              </span>
+              <span class="task-time" *ngIf="task.estimatedTime">
+                <i class="fas fa-clock"></i>
+                {{ task.estimatedTime }}min
+              </span>
+              <span class="recurrence-badge" *ngIf="task.recurrence">
+                <i [class]="getRecurrenceIcon(task.recurrence.type)"></i>
+                {{ task.recurrence.type }}
+              </span>
+            </div>
+          </div>
+
+          <p class="task-description" *ngIf="task.description">{{ task.description }}</p>
+
+          <!-- Checklist -->
+          <div class="checklist-section" *ngIf="task.checklist && task.checklist.length > 0">
+            <div class="checklist-header">
+              <span
+                >Checklist ({{ getCompletedChecklistItems(task.checklist) }}/{{
+                  task.checklist.length
+                }})</span
+              >
+              <div class="checklist-progress">
+                <div class="progress-bar">
+                  <div
+                    class="progress-fill"
+                    [style.width.%]="
+                      (getCompletedChecklistItems(task.checklist) / task.checklist.length) * 100
+                    "
+                  ></div>
+                </div>
+              </div>
+            </div>
+            <div class="checklist-items">
+              <div *ngFor="let item of task.checklist" class="checklist-item">
+                <input
+                  type="checkbox"
+                  [checked]="item.completed"
+                  (change)="toggleChecklistItem(item)"
+                />
+                <span [class.completed]="item.completed">{{ item.text }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Subtasks -->
+          <div class="subtasks-section" *ngIf="task.subtasks && task.subtasks.length > 0">
+            <div class="subtasks-header">
+              <span
+                >Subtasks ({{ getCompletedSubtasks(task.subtasks) }}/{{
+                  task.subtasks.length
+                }})</span
+              >
+            </div>
+            <div class="subtasks-items">
+              <div *ngFor="let subtask of task.subtasks" class="subtask-item">
+                <input
+                  type="checkbox"
+                  [checked]="subtask.completed"
+                  (change)="toggleSubtask(subtask)"
+                />
+                <span [class.completed]="subtask.completed">{{ subtask.title }}</span>
+                <span class="subtask-time" *ngIf="subtask.estimatedTime"
+                  >{{ subtask.estimatedTime }}min</span
+                >
+              </div>
+            </div>
+          </div>
+
+          <!-- Attachments -->
+          <div class="attachments-section" *ngIf="task.attachments && task.attachments.length > 0">
+            <div class="attachments-header">
+              <i class="fas fa-paperclip"></i>
+              <span>Attachments ({{ task.attachments.length }})</span>
+            </div>
+            <div class="attachments-grid">
+              <div *ngFor="let attachment of task.attachments" class="attachment-item">
+                <i [class]="getFileIcon(attachment.type)"></i>
+                <span class="attachment-name">{{ attachment.name }}</span>
+                <span class="attachment-size">{{ formatFileSize(attachment.size) }}</span>
+                <button
+                  class="attachment-btn"
+                  (click)="downloadAttachment(attachment)"
+                  title="Download"
+                >
+                  <i class="fas fa-download"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="task-actions">
+            <button class="task-btn edit" (click)="editTask(task)" title="Edit Task">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button
+              class="task-btn reminder"
+              (click)="addReminderToTask(task)"
+              title="Add Reminder"
+            >
+              <i class="fas fa-bell"></i>
+            </button>
+            <button
+              class="task-btn attachment"
+              (click)="addAttachmentToTask(task)"
+              title="Add Attachment"
+            >
+              <i class="fas fa-paperclip"></i>
+            </button>
+            <button class="task-btn delete" (click)="deleteTask(task.id)" title="Delete Task">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Swipe Hints -->
+        <div class="swipe-hint left">
+          <i class="fas fa-trash"></i>
+          <span>Delete</span>
+        </div>
+        <div class="swipe-hint right">
+          <i class="fas fa-check"></i>
+          <span>Complete</span>
+        </div>
+      </div>
+
+      <!-- Load More -->
+      <div *ngIf="visibleTasks.length < filteredTasks.length" class="load-more">
+        <button class="btn-secondary" (click)="onScroll()">
+          <i class="fas fa-chevron-down"></i>
+          Load More Tasks
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- Add Task Modal -->
+  <div class="modal-overlay" *ngIf="isAddingTask" (click)="closeAddTask()">
+    <div #addTaskModal class="modal-content add-task-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>{{ isEditing ? 'Edit Task' : 'Add New Task' }}</h2>
+        <button class="close-btn" (click)="closeAddTask()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Basic Info -->
+        <div class="form-section">
+          <h4>Basic Information</h4>
+          <div class="form-group">
+            <label for="taskTitle">Task Title *</label>
+            <input
+              type="text"
+              id="taskTitle"
+              [(ngModel)]="newTask.title"
+              placeholder="What needs to be done?"
+              maxlength="100"
+              autofocus
+            />
+            <span class="char-count">{{ newTask.title?.length || 0 }}/100</span>
+          </div>
+
+          <div class="form-group">
+            <label for="taskDescription">Description</label>
+            <textarea
+              id="taskDescription"
+              [(ngModel)]="newTask.description"
+              placeholder="Add details about this task..."
+              rows="3"
+              maxlength="500"
+            ></textarea>
+            <span class="char-count">{{ newTask.description?.length || 0 }}/500</span>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="taskDueDate">Due Date</label>
+              <input type="date" id="taskDueDate" [(ngModel)]="newTask.dueDate" [min]="minDate" />
+            </div>
+
+            <div class="form-group">
+              <label for="taskDueTime">Due Time</label>
+              <input type="time" id="taskDueTime" [(ngModel)]="newTask.dueTime" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="taskPriority">Priority</label>
+              <select id="taskPriority" [(ngModel)]="newTask.priority">
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="taskCategory">Category</label>
+              <select id="taskCategory" [(ngModel)]="newTask.category">
+                <option *ngFor="let category of categories" [value]="category">
+                  {{ category | titlecase }}
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="estimatedTime">Estimated Time (minutes)</label>
+            <input
+              type="number"
+              id="estimatedTime"
+              [(ngModel)]="newTask.estimatedTime"
+              min="5"
+              max="480"
+              placeholder="30"
+            />
+          </div>
+        </div>
+
+        <!-- Recurrence -->
+        <div class="form-section">
+          <h4>Recurrence</h4>
+          <div class="recurrence-options">
+            <button
+  *ngFor="let recurType of recurrenceTypes"
+  class="recurrence-btn"
+  [class.active]="newTask.recurrence?.type === recurType.value"
+  (click)="setRecurrence(recurType.value)"
+>
+  <i [class]="recurType.icon"></i>
+  {{ recurType.label }}
+</button>
+            <button
+              class="recurrence-btn remove"
+              *ngIf="newTask.recurrence"
+              (click)="removeRecurrence()"
+            >
+              <i class="fas fa-times"></i>
+              Remove
+            </button>
+          </div>
+        </div>
+
+        <!-- Checklist -->
+        <div class="form-section">
+          <h4>Checklist</h4>
+          <div class="checklist-input">
+            <input
+              type="text"
+              [(ngModel)]="newChecklistItem"
+              placeholder="Add a checklist item..."
+              (keydown.enter)="addChecklistItem()"
+            />
+            <button class="btn-primary" (click)="addChecklistItem()">
+              <i class="fas fa-plus"></i>
+            </button>
+          </div>
+          <div class="checklist-preview" *ngIf="newTask.checklist && newTask.checklist.length > 0">
+            <div
+              *ngFor="let item of newTask.checklist; let i = index"
+              class="checklist-preview-item"
+            >
+              <span>{{ item.text }}</span>
+              <button class="remove-btn" (click)="removeChecklistItem(i)">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Subtasks -->
+        <div class="form-section">
+          <h4>Subtasks</h4>
+          <div class="subtask-input">
+            <input
+              type="text"
+              [(ngModel)]="newSubtask"
+              placeholder="Add a subtask..."
+              (keydown.enter)="addSubtask()"
+            />
+            <button class="btn-primary" (click)="addSubtask()">
+              <i class="fas fa-plus"></i>
+            </button>
+          </div>
+          <div class="subtasks-preview" *ngIf="newTask.subtasks && newTask.subtasks.length > 0">
+            <div
+              *ngFor="let subtask of newTask.subtasks; let i = index"
+              class="subtask-preview-item"
+            >
+              <span>{{ subtask.title }}</span>
+              <button class="remove-btn" (click)="removeSubtask(i)">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Attachments -->
+        <div class="form-section">
+          <h4>Attachments</h4>
+          <div class="attachment-actions">
+            <input
+              type="file"
+              id="fileInput"
+              (change)="onFileSelected($event)"
+              style="display: none"
+            />
+            <label for="fileInput" class="btn-secondary">
+              <i class="fas fa-upload"></i>
+              Upload File
+            </label>
+            <button class="btn-secondary" (click)="takePhoto()">
+              <i class="fas fa-camera"></i>
+              Take Photo
+            </button>
+          </div>
+          <div
+            class="attachments-preview"
+            *ngIf="newTask.attachments && newTask.attachments.length > 0"
+          >
+            <div
+              *ngFor="let attachment of newTask.attachments; let i = index"
+              class="attachment-preview-item"
+            >
+              <i [class]="getFileIcon(attachment.type)"></i>
+              <span class="attachment-name">{{ attachment.name }}</span>
+              <span class="attachment-size">{{ formatFileSize(attachment.size) }}</span>
+              <button class="remove-btn" (click)="removeAttachment(i)">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reminders -->
+        <div class="form-section">
+          <h4>Reminders</h4>
+          <div class="reminder-actions">
+            <button class="btn-secondary" (click)="addReminder()">
+              <i class="fas fa-bell"></i>
+              Add Reminder
+            </button>
+          </div>
+          <div class="reminders-preview" *ngIf="newTask.reminders && newTask.reminders.length > 0">
+            <div
+              *ngFor="let reminder of newTask.reminders; let i = index"
+              class="reminder-preview-item"
+            >
+              <i class="fas fa-bell"></i>
+              <span>{{ reminder.time | date : 'short' }}</span>
+              <button class="remove-btn" (click)="removeReminder(i)">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="closeAddTask()">Cancel</button>
+        <button
+          class="btn-primary"
+          (click)="isEditing ? updateTask() : addTask()"
+          [disabled]="!newTask.title?.trim()"
+        >
+          <i class="fas" [class.fa-plus]="!isEditing" [class.fa-save]="isEditing"></i>
+          {{ isEditing ? 'Update Task' : 'Add Task' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Analytics Modal -->
+  <div class="modal-overlay" *ngIf="isAnalyticsOpen" (click)="closeAnalytics()">
+    <div #analyticsModal class="modal-content analytics-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Your Productivity Analytics</h2>
+        <button class="close-btn" (click)="closeAnalytics()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="analytics-grid" *ngIf="analytics">
+          <!-- Completion Rate -->
+          <div class="analytics-card">
+            <h4>Completion Rate</h4>
+            <div class="completion-circle">
+              <div
+                class="circle-progress"
+                [style.background]="
+                  'conic-gradient(var(--primary-color) ' +
+                  analytics.completionRate +
+                  '%, #e0e0e0 0)'
+                "
+              >
+                <span class="progress-text"
+                  >{{ analytics.completionRate | number : '1.0-0' }}%</span
+                >
+              </div>
+            </div>
+            <p>{{ analytics.completedTasks }} of {{ analytics.totalTasks }} tasks completed</p>
+          </div>
+
+          <!-- Productivity Score -->
+          <div class="analytics-card">
+            <h4>Productivity Score</h4>
+            <div class="score-display">
+              <span class="score-value">{{ analytics.productivityScore | number : '1.0-0' }}</span>
+              <span class="score-label">/ 100</span>
+            </div>
+            <div class="score-bar">
+              <div class="score-fill" [style.width.%]="analytics.productivityScore"></div>
+            </div>
+          </div>
+
+          <!-- Tasks by Priority -->
+          <div class="analytics-card">
+            <h4>Tasks by Priority</h4>
+            <div class="priority-stats">
+              <div *ngFor="let priority of ['high', 'medium', 'low']" class="priority-stat">
+                <span class="priority-dot" [style.background]="getPriorityColor(priority)"></span>
+                <span class="priority-label">{{ priority | titlecase }}</span>
+                <span class="priority-count">{{ analytics.tasksByPriority[priority] || 0 }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Weekly Progress -->
+          <div class="analytics-card full-width">
+            <h4>Weekly Progress</h4>
+            <div class="weekly-chart">
+              <div *ngFor="let day of analytics.weeklyProgress" class="chart-bar">
+                <div class="bar completed"
+     [style.height.%]="getCompletedHeight(day.completed)">
+</div>
+
+                <div
+                  class="bar created"
+                  [style.height.%]="getCreatedHeight(day.created)"
+
+                ></div>
+                <span class="bar-label">{{ day.date | date : 'EEE' }}</span>
+              </div>
+            </div>
+            <div class="chart-legend">
+              <span class="legend-item completed">Completed</span>
+              <span class="legend-item created">Created</span>
+            </div>
+          </div>
+
+          <!-- Achievements -->
+          <div class="analytics-card full-width" *ngIf="achievements.length > 0">
+            <h4>Your Achievements</h4>
+            <div class="achievements-grid">
+              <div *ngFor="let achievement of achievements" class="achievement-badge">
+                <i class="fas fa-trophy"></i>
+                <span>{{ achievement }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-primary" (click)="closeAnalytics()">
+          <i class="fas fa-chart-bar"></i>
+          Great Progress!
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" *ngIf="isSettingsOpen" (click)="closeSettings()">
+    <div #settingsModal class="modal-content settings-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Settings</h2>
+        <button class="close-btn" (click)="closeSettings()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="settings-section">
+          <h3>Appearance</h3>
+          <div class="setting-item">
+            <label for="themeSelect">Theme</label>
+            <select id="themeSelect" [(ngModel)]="userSettings.theme">
+              <option value="classic">Classic Purple</option>
+              <option value="dark">Dark Mode</option>
+              <option value="green">Green Theme</option>
+              <option value="blue">Blue Theme</option>
+              <option value="purple">Purple Theme</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Preferences</h3>
+          <div class="setting-item toggle-item">
+            <div class="toggle-info">
+              <label>Enable Notifications</label>
+              <p>Get reminders for upcoming tasks</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" [(ngModel)]="userSettings.notifications" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-item toggle-item">
+            <div class="toggle-info">
+              <label>Auto Sort Tasks</label>
+              <p>Automatically sort tasks by priority and due date</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" [(ngModel)]="userSettings.autoSort" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-item toggle-item">
+            <div class="toggle-info">
+              <label>Swipe Gestures</label>
+              <p>Enable swipe to complete/delete tasks</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" [(ngModel)]="userSettings.enableSwipe" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="setting-item toggle-item">
+            <div class="toggle-info">
+              <label>Shake to Undo</label>
+              <p>Shake your device to undo last action</p>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" [(ngModel)]="userSettings.enableShake" />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>Data Management</h3>
+          <div class="setting-item">
+            <button class="btn-secondary full-width" (click)="exportTasks()">
+              <i class="fas fa-download"></i>
+              Export Tasks
+            </button>
+          </div>
+          <div class="setting-item">
+            <button
+              class="btn-secondary full-width"
+              (click)="clearCompleted()"
+              [disabled]="getTasksCount().completed === 0"
+            >
+              <i class="fas fa-trash"></i>
+              Clear Completed Tasks
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-secondary" (click)="closeSettings()">Cancel</button>
+        <button class="btn-primary" (click)="saveSettings()">
+          <i class="fas fa-save"></i>
+          Save Settings
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-section">
+        <h4>Taskly</h4>
+        <p>Your personal task management solution</p>
+        <div class="theme-preview" [style.background]="getCurrentTheme().background">
+          <div class="theme-color" [style.background]="getCurrentTheme().primary"></div>
+          <div class="theme-color" [style.background]="getCurrentTheme().secondary"></div>
+        </div>
+      </div>
+
+      <div class="footer-section">
+        <h4>Quick Links</h4>
+        <a (click)="openAddTask()">Add Task</a>
+        <a (click)="openAnalytics()">Analytics</a>
+        <a (click)="openSettings()">Settings</a>
+        <a (click)="activeFilter = 'all'; applyFilters()">All Tasks</a>
+      </div>
+
+      <div class="footer-section">
+        <h4>Stats</h4>
+        <p><strong>Total:</strong> {{ getTasksCount().total }}</p>
+        <p><strong>Active:</strong> {{ getTasksCount().active }}</p>
+        <p><strong>Completed:</strong> {{ getTasksCount().completed }}</p>
+        <p>
+          <strong>Productivity:</strong> {{ analytics?.productivityScore || 0 | number : '1.0-0' }}%
+        </p>
+      </div>
+
+      <div class="footer-section">
+        <h4>Gestures</h4>
+        <p>← Swipe left to delete</p>
+        <p>→ Swipe right to complete</p>
+        <p>📱 Shake to undo</p>
+        <p>⬇️ Pull to refresh</p>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <p>&copy; 2025 Taskly. Abdallah Hany.</p>
+    </div>
+  </footer>
+</div>

@@ -1,0 +1,167 @@
+<div class="intro-container">
+  <div class="background-effects"></div>
+
+  <div class="intro-paper">
+    <!-- الهيدر -->
+    <div class="paper-header">
+      <h1 class="app-title">Taskly</h1>
+      <div class="progress-container">
+        <div class="progress-bar">
+          <div class="progress-fill" [style.width]="getProgressWidth()"></div>
+        </div>
+        <span class="progress-text">{{ currentStep + 1 }}/{{ totalSteps }}</span>
+      </div>
+    </div>
+
+    <!-- الخطوات -->
+    <div class="steps-container">
+      <!-- Step 1: الاسم -->
+      <div class="question-card active" *ngIf="currentStep === 0">
+        <div class="question-header">
+          <h2>Welcome to Taskly! 👋</h2>
+          <p>Let's get to know you better</p>
+        </div>
+
+        <div class="question-content">
+          <div class="input-group">
+            <div class="input-with-icon">
+              <i class="fas fa-user"></i>
+              <input
+                type="text"
+                [(ngModel)]="userData.name"
+                placeholder="What's your name?"
+                (keydown.enter)="nextStep()"
+                autofocus>
+            </div>
+          </div>
+        </div>
+
+        <div class="question-actions">
+          <button class="btn btn-primary" (click)="nextStep()" [disabled]="!isStepValid()">
+            Continue
+            <i class="fas fa-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 2: أسلوب العمل -->
+      <div class="question-card" *ngIf="currentStep === 1">
+        <div class="question-header">
+          <h2>Your Work Style 🎯</h2>
+          <p>How do you like to work?</p>
+        </div>
+
+        <div class="question-content">
+          <div class="options-grid">
+            <div
+              *ngFor="let style of productivityStyles"
+              class="style-option"
+              [class.selected]="userData.productivityStyle === style.value"
+              (click)="selectProductivityStyle(style.value)">
+              <div class="option-icon" [style.background]="style.color">
+                <i [class]="style.icon"></i>
+              </div>
+              <div class="option-content">
+                <h3>{{ style.title }}</h3>
+                <p>{{ style.description }}</p>
+              </div>
+              <div class="checkmark" *ngIf="userData.productivityStyle === style.value">
+                <i class="fas fa-check"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="question-actions">
+          <button class="btn btn-secondary" (click)="previousStep()">
+            <i class="fas fa-arrow-left"></i>
+            Back
+          </button>
+          <button class="btn btn-primary" (click)="nextStep()">
+            Continue
+            <i class="fas fa-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 3: التفضيلات -->
+      <div class="question-card" *ngIf="currentStep === 2">
+        <div class="question-header">
+          <h2>Preferences ⚙️</h2>
+          <p>Customize your experience</p>
+        </div>
+
+        <div class="question-content">
+          <!-- الأهداف اليومية -->
+          <div class="preference-item">
+            <div class="preference-header">
+              <i class="fas fa-bullseye"></i>
+              <div class="preference-info">
+                <h4>Daily Goals</h4>
+                <span class="value">{{ userData.dailyGoals }} tasks</span>
+              </div>
+            </div>
+            <input
+              type="range"
+              min="3"
+              max="15"
+              [(ngModel)]="userData.dailyGoals"
+              class="slider">
+            <div class="slider-labels">
+              <span>Light</span>
+              <span>Moderate</span>
+              <span>Ambitious</span>
+            </div>
+          </div>
+
+          <!-- الإشعارات -->
+          <div class="preference-item">
+            <div class="preference-header">
+              <i class="fas fa-bell"></i>
+              <div class="preference-info">
+                <h4>Notifications</h4>
+                <p>Get reminders for tasks</p>
+              </div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" [(ngModel)]="userData.notifications">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <!-- الثيم -->
+          <div class="preference-item">
+            <div class="preference-header">
+              <i class="fas fa-palette"></i>
+              <div class="preference-info">
+                <h4>Color Theme</h4>
+                <p>Choose your style</p>
+              </div>
+            </div>
+            <div class="theme-options">
+              <div
+                *ngFor="let theme of themes"
+                class="theme-option"
+                [class.selected]="userData.theme === theme.name"
+                (click)="selectTheme(theme.name)"
+                [style.background]="theme.color">
+                <i class="fas fa-check" *ngIf="userData.theme === theme.name"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="question-actions">
+          <button class="btn btn-secondary" (click)="previousStep()">
+            <i class="fas fa-arrow-left"></i>
+            Back
+          </button>
+          <button class="btn btn-primary completion-btn" (click)="completeSetup()">
+            Get Started
+            <i class="fas fa-rocket"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

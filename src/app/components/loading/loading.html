@@ -1,0 +1,40 @@
+<div class="loading-container">
+  <div class="desk-environment">
+    <div class="notebook-paper">
+      <div class="paper-content">
+        <div class="header-section">
+          <h1 class="paper-title">Taskly</h1>
+          <div class="date-line">{{ getCurrentDate() }}</div>
+        </div>
+
+        <div class="writing-area">
+          <div class="writing-line" *ngFor="let i of [0,1,2,3]">
+            <div class="line-number">{{ i + 1 }}</div>
+            <div class="text-content">
+              <span *ngIf="currentWritingIndex > i" class="written-text">
+                {{ writingTexts[i] }}
+              </span>
+              <span *ngIf="currentWritingIndex === i" class="typing-text">
+                {{ currentText }}<span class="cursor">|</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="progress-section">
+          <div class="progress-container">
+            <div class="progress-track">
+              <div class="ink-progress" [style.width.%]="progress">
+                <div class="progress-glow"></div>
+              </div>
+            </div>
+            <div class="progress-info">
+              <span class="percentage">{{ progress }}%</span>
+              <span class="status">LOADING</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
